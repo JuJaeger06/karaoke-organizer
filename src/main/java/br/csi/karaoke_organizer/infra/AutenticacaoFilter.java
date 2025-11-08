@@ -27,11 +27,23 @@ public class AutenticacaoFilter extends OncePerRequestFilter {
         String token = recuperarToken(request);
 
         if (token != null) {
-            String subject = this.tokenServiceJWT.getSubject(token);
+            try {
+                String subject = this.tokenServiceJWT.getSubject(token);
 
-            UserDetails userDetails = this.autenticacaoService.loadUserByUsername(subject);
-            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                UserDetails userDetails = this.autenticacaoService.loadUserByUsername(subject);
+                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
+            } catch (RuntimeException ex) {
+                if (ex.getMessage().contains("Token inválido ou expirado")) {
+                    // Configura a resposta HTTP para 401 Unauthorized
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Código 401
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"erro\": \"Token inválido ou expirado\"}");
+                    return;
+                }
+                throw ex;
+            }
         }
 
         filterChain.doFilter(request, response);
